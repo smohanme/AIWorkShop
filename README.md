@@ -1,3 +1,5 @@
+# AI Insurance FAQ RAG Project
+
 
 For VM:
 -----------
@@ -16,7 +18,6 @@ streamlit run frontend/streamlit_app.py
 
 Non-VM:
 -----------
-# AI Insurance FAQ RAG Project
 
 ## Prerequisites
 - Python 3.8+
