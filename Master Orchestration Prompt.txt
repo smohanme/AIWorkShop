@@ -1,0 +1,204 @@
+Master Orchestration Prompt (drop-in for Copilot / AutoGen / DeepSeek / Auto-pipeline)
+--------------------------------------------------------------------------------------
+
+You are an AI Agentic Solution Architect / Developer agent. Your goal is to produce a complete, runnable RAG-based Insurance Policy FAQ Assistant using the supplied architecture and constraints. Follow the ICE-POT sequence (Ideation → Creation → Execution → Performance → Optimization → Transformation) and produce all code, data, tests, and documentation in the exact project layout below.
+
+Constraints & environment
+* Python: 3.12 or 3.12.4 ONLY.
+* Allowed packages (use only these): `fastapi`, `uvicorn`, `streamlit`, `requests`, `python-dotenv`, `pandas`, `sentence-transformers`, `faiss-cpu`.
+* No SSL certificates available (no HTTPS mandatory setup).
+* No admin rights; do not require system-level changes.
+* No virtualenv creation (install packages directly).
+* Embedding model (offline/open-source): `all-MiniLM-L6-v2` via `SentenceTransformer`.
+* Vector DB => FAISS (store index in `index_store/faiss.index` and metadata in `index_store/meta.pkl`).
+* LLM API usage: Groq API sample endpoint `https://api.groq.com/openai/v1/chat/completions`. Do not hardcode secrets in code — use `.env`. Provide example `.env.example` showing `GROQ_API_KEY=your_api_key_here`.
+* Project structure (must produce files in these paths and content exactly as asked):
+
+AILab_Non_VM/
+├── backend/
+│   ├── groq_client.py
+│   ├── indexer.py
+│   ├── main.py
+│   ├── prompt_templates.py
+│   ├── retriever.py
+│   └── __pycache__/
+├── data/
+│   └── faqs.csv
+├── frontend/
+│   ├── requirements.txt
+│   └── streamlit_app.py
+├── index_store/
+│   ├── faiss.index
+│   └── meta.pkl
+├── requirements.txt
+└── README.md
+
+
+Top-level goals:
+1. Build ingestion (CSV) → embedding (SentenceTransformer) → FAISS index pipeline.
+2. Provide a FastAPI backend `/ask` endpoint that:
+
+   * Receives a question (and optional top_k), uses retriever to fetch top-k FAQ docs.
+   * Crafts a prompt merging retrieved context + question via `prompt_templates.py`.
+   * Calls Groq LLM via `groq_client.py` to get an answer.
+   * Returns answer plus citations (id or question from faqs.csv), and retrieval details.
+3. Provide a Streamlit frontend (`streamlit_app.py`) that allows asking questions and shows answer + citations and the original retrieved FAQ entries.
+4. Produce `data/faqs.csv` (10–15 synthetic QA pairs for Auto & Home Insurance) with natural customer phrasing.
+5. Store FAISS index files in `index_store/`.
+6. Provide tests/demo queries and an evaluation plan with metrics and example outputs (3 example queries).
+7. Produce `README.md` with run instructions, architecture mapping, limitations and future improvements.
+
+
+
+Detailed generation instructions (work sequentially)
+#1) IDEATION — produce short design summary (save to README later)
+* Create 3 short solution blueprints (2–4 paragraphs each) mapping how data flows across layers of the provided AI architecture: Input Interface (Streamlit), RAG Layer (SentenceTransformer → FAISS), Business Layer (retriever + prompt templates + FastAPI + simple rules), LLM Gateway (Groq wrapper), MCP Server (describe design for integrations). For each blueprint include pros/cons and choose the best blueprint given constraints (no SSL, no admin, no virtualenv). Save the chosen blueprint text in README under "Architecture & Design".
+
+#2) CREATION — produce the synthetic dataset
+* Generate a CSV at `data/faqs.csv` containing 10–15 rows with columns `question,answer`.
+* Mix Auto & Home insurance topical Qs: coverage, exclusions, claim time limits, renewals, premium grace periods, roadside assistance, glass repair, water damage exclusions, deductible explanations, total loss, rental reimbursement, hurricane/flood differences, proof required for claims.
+* Each answer should be concise (2–4 sentences) and contain a unique `FAQ_ID` label in the answer text for citation (e.g., `FAQ_ID: FAQ_01`) — but the CSV itself only needs `question,answer` columns; the FAQ_ID can be embedded at the end of the answer for retrieval citation simplicity.
+
+Deliverable: `data/faqs.csv`
+#3) EXECUTION — code files to implement (write complete working code for each file)
+Create these Python files with runnable code and inline comments.
+
+##`backend/indexer.py`
+* Reads `data/faqs.csv` using `pandas`.
+* Loads `SentenceTransformer("all-MiniLM-L6-v2")`.
+* Builds embeddings for each FAQ.
+* Creates a FAISS index (use `faiss-cpu` appropriate API).
+* Saves `index_store/faiss.index` and metadata (list of dicts or DataFrame) as `index_store/meta.pkl` using `pickle`.
+* Provide a CLI `if __name__ == "__main__":` to run indexing.
+
+##`backend/retriever.py`
+* Loads `index_store/faiss.index` and `meta.pkl`.
+* Loads the same `SentenceTransformer` model.
+* Exposes a function `retrieve(question: str, top_k: int = 3)` → returns list of top-k metadata entries and distances, including the original `question` and `answer` fields for each returned item.
+* Should be robust to missing index (throw clear error).
+
+##`backend/prompt_templates.py`
+* Provide at least two prompt templates:
+  1. `grounded_answer_template`: injects retrieved FAQ items (each as "SOURCE n: question — answer") + the user question. Instruct the LLM to answer concisely, explicitly cite the FAQ_IDs, and avoid hallucination. Include an instruction to return JSON with keys: `answer`, `citations` (list), and `confidence_estimate`.
+  2. `fallback_template`: used if no relevant doc found (ask for clarification / offer to escalate).
+
+##`backend/groq_client.py`
+* Implement a small wrapper `GroqClient` that:
+
+  * Reads `GROQ_API_KEY` from env vars via `python-dotenv` (use `.env`).
+  * Sends a POST to `https://api.groq.com/openai/v1/chat/completions` with the sample request body format shown earlier.
+  * Provides `generate_chat_completion(system_prompt, user_prompt, model="llama-3.3-70b-versatile", max_tokens=512)` → returns text (or structured JSON if LLM returns).
+  * Handle network timeouts and show helpful error messages (since no SSL certs in environment, use plain requests; ensure you set `verify=False` only if necessary but avoid insecure practices: instead, clearly note in code comments that environment lacks SSL and show guidance to run behind a proxy in production).
+
+> Security note in code: Do not hardcode API keys. Provide `.env.example` file contents in README.
+##`backend/main.py`
+* FastAPI app exposing:
+
+  * `GET /health` → simple status.
+  * `POST /ask` with JSON `{ "question": str, "top_k": int (optional) }`.
+  * On POST: call retriever, build prompt using `prompt_templates.grounded_answer_template`, call `GroqClient.generate_chat_completion`, and return JSON:
+
+    json
+    {
+      "answer": "...",
+      "citations": [{"faq_id": "FAQ_01", "question": "...", "answer": "..."}],
+      "retrieval_details": [{"score": 0.12, "index": 0}],
+      "raw_llm_response": {...}
+    }
+    
+  * Provide example usage in comments and sample `curl` command in README.
+
+##`frontend/streamlit_app.py`
+
+* Streamlit UI:
+  * Text input for user question.
+  * Slider/number input for `top_k`.
+  * Button to submit which sends a POST to local FastAPI endpoint (assume FastAPI runs at `http://localhost:8000`).
+  * Display top-k retrieved FAQ entries (question + short answer), then the assistant answer and citations in a distinct UI block.
+  * Show response time (latency) measured in UI.
+
+##`frontend/requirements.txt`
+
+* List minimal required packages from allowed list used by Streamlit portion (e.g., `streamlit`, `requests`, `python-dotenv`).
+
+##`requirements.txt` (project root)
+* Pin allowed packages, e.g.:
+  fastapi
+  uvicorn
+  streamlit
+  requests
+  python-dotenv
+  pandas
+  sentence-transformers
+  faiss-cpu
+  
+
+#4) PERFORMANCE — produce tests, 3 example queries & evaluation plan
+* Provide 3 example user queries (realistic customer style) and show expected responses based on the data in `faqs.csv`. Each expected response must show the grounding/citation (FAQ_ID) and the retrieved FAQ text snippet used.
+* Provide evaluation metrics and their definitions:
+  * Answer Accuracy — what % of factual claims are supported by retrieved docs (human-evaluated or simple string-check).
+  * Grounding Rate — proportion of answers with at least one correct citation.
+  * Latency — time from receiving question to responding (breakdown: embedding time, retrieval time, LLM time).
+  * Relevance@k — fraction of top-k that are actually relevant (human or simulation).
+* Implement a simple local evaluation script snippet (can be added to README) that runs the three queries against `/ask`, records response times, and checks whether returned citations exist in `data/faqs.csv`.
+
+#5) OPTIMIZATION — scalability, security and agentic workflow suggestions
+* Provide detailed suggestions (text) in README for:
+  * How to scale to more data (sharding FAISS, using IVF indices).
+  * How to protect API keys and PII (`.env`, secrets manager).
+  * How to reduce hallucinations: better prompt engineering, strict instruction "Only use the following sources", re-ranking by BM25 or semantic similarity, answer verification step (post-filter).
+  * How to add agentic workflows (LangChain or LangGraph) for multi-step actions (file upload -> claim initiation -> notify user), and how MCP Server would integrate (patterns, message flow).
+  * Note on no-SSL in this environment: recommend running in a corporate network with proper TLS for production.
+
+#6) TRANSFORMATION — documentation & final checklist
+* Create `README.md` with:
+  * Problem statement and demo goal.
+  * Architecture mapping (clear diagram in text form mapping each file/component to architecture layer).
+  * Prereqs and how to install packages without virtualenv:
+
+    * `pip install -r requirements.txt`
+  * How to run:
+
+    1. Fill `.env` from `.env.example` with `GROQ_API_KEY`.
+    2. `python backend/indexer.py` → creates `index_store/`.
+    3. `uvicorn backend.main:app --reload --port 8000`
+    4. `streamlit run frontend/streamlit_app.py`
+  * Example `curl` requests and Streamlit usage.
+  * Limitations, security notes, future work.
+  * Deliverables checklist (all files present, faiss.index exists, 3 sample queries output).
+
+Acceptance Criteria (must be satisfied for success)
+* `data/faqs.csv` created with 10–15 high-quality Q&A pairs (Auto+Home).
+* `backend/indexer.py` creates FAISS index and `meta.pkl`.
+* `backend/retriever.py` returns coherent retrieved documents for queries.
+* `backend/main.py` exposes `/ask` and returns LLM answer with citations and retrieval details.
+* `frontend/streamlit_app.py` allows entering question and viewing answer + citations.
+* 3 example queries included with expected outputs (grounded).
+* `README.md` explains architecture, how to run, test queries, and evaluation strategy.
+* No code requires SSL / admin / virtualenv to run in the given environment (demonstrate fallback handling where needed).
+* Provide a short "Demo script" (shell commands / steps) that verifies everything in under 15 minutes on a reasonable local machine.
+
+Output format required from the agentic runner
+When you finish, return a ZIP-like manifest (or a JSON list) specifying the created files and for each file include:
+
+* `path`
+* `status` (`created` or `skipped`)
+* `first 10 lines` (to confirm content)
+* `run_instructions` if the file is an executable (indexer, main, streamlit_app)
+
+Also include the 3 example queries and the actual LLM answer text (as would be produced given the `faqs.csv` you generated), and the measured latency breakdown for each (if real execution happened; if not, provide estimated times with rational assumptions).
+
+Extra developer hints for the agentic runner (be explicit in code)
+
+* Use `pickle` for metadata save/load.
+* For FAISS: use `faiss.IndexFlatL2()` for simplicity and store vectors as float32.
+* Keep embeddings dimension consistent with `all-MiniLM-L6-v2` (384 dims).
+* In `prompt_templates.grounded_answer_template`, explicitly request JSON output to make parsing easier.
+* Provide clear error messages for missing `GROQ_API_KEY`.
+* In README include `.env.example` content example:
+
+
+GROQ_API_KEY=gsk_YOUR_KEY_HERE
+
+Final note to the runner:
+Be pragmatic: where external network calls may fail (e.g., Groq API due to environment restrictions), provide sample mock responses and explain how to swap to real API by filling `.env` and uncommenting the real request lines. Always prefer deterministic reproducible components (indexing & retrieval) so reviewers can test retrieval and grounding even if the LLM API is unreachable.

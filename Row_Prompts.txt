@@ -1,0 +1,175 @@
+I'm an AI agentic solution architect, and I want to generate effective prompts for developing an AI Agentic tool for the insurance domain based on the use case given below.
+We need to use the below AI architecture and tech stack tools along with conditions as well. Also we have the list of packages listed over there to install for developing the Agentic AI tool.
+The project structure is also given as an example, and final outcomes will be given within 2 hours, and documentation will be reviewed, and winners and runners-up will be awarded. Create effective prompts for this using ICE-POT framework prompts to generate complete development activities for this project.
+
+Here is the complete Ai Architecture textual diagram for any AI Agentic Implementation. AI Agent Architecture – Textual Representation:
+--------------------------------------------------
+1. Input Interface Layer
+This layer is responsible for capturing user inputs, data, and context through different UI frameworks.
+Supported frameworks: Streamlit, Angular, ReactJS, Gradio
+Components:
+•	Inputs Parameters – User-defined values or configurations.
+•	Input Data / Documents / API – Structured/unstructured input such as files, APIs, or datasets.
+•	Crafted Prompts / Triggers – Prompts designed manually or generated dynamically to trigger workflows.
+•	Additional Context – Supplementary metadata or knowledge needed for better responses.
+Connections:
+•	Input Interface → Embedding Model (for retrieval augmentation)
+•	Input Interface → Business Layer (direct inputs for rules, workflow, prompts, APIs, etc.)
+
+2. RAG (Retrieval-Augmented Generation) Layer
+Used to enhance responses with contextual knowledge.
+Components:
+•	Embedding Model – Converts input data/documents into vector embeddings.
+•	Vector DB (Milvus) – Stores embeddings for similarity search and retrieval.
+Connections:
+•	Input Interface → Embedding Model
+•	Embedding Model → Vector DB
+•	Vector DB ↔ Business Layer (retrieved context is passed back to improve LLM responses)
+
+3. Business Layer
+Implements business logic, workflows, and integrations.
+Supported frameworks/tools: LangChain, LangGraph, LlamaIndex, AutoGen, FastAPI, LiteLLM, Python
+Components:
+•	Business Rules – Policies and conditions governing AI agent behavior.
+•	Workflow – Defined sequences for task automation.
+•	Crafted Prompts – Structured prompts used by LLMs.
+•	LLM Connectors – Interfaces for connecting to different LLMs through APIs.
+•	3rd Party APIs – External APIs consumed for additional functionality.
+•	Custom Tools – Tailored functions, scripts, or utilities for specific tasks.
+Connections:
+•	Business Layer ↔ RAG Layer (context retrieval)
+•	Business Layer → LLM Gateway (query execution through LLMs)
+•	Business Layer → MCP Server (integration with internal and external apps)
+
+4. LLM Gateway
+Centralized entry point for accessing LLMs (Large Language Models).
+•	Executes crafted prompts and workflows.
+•	Sends results back to Business Layer.
+Connections:
+•	Business Layer → LLM Gateway → LLM (models)
+•	LLM Gateway → Output
+
+5. Output Layer
+•	Final results are delivered back to the user.
+•	Could be displayed via UI, APIs, or downstream systems.
+Connections:
+•	LLM Gateway → Output
+•	Business Layer (via MCP Server) → 3rd Party Applications, Tools, Websites
+
+6. MCP Server (Middleware Control/Processing Server)
+Acts as middleware to manage communication between the Business Layer and external/internal systems.
+Components:
+•	Internal Applications – Legacy or enterprise applications connected via API.
+•	3rd Party Applications / Tools – External systems or SaaS tools.
+•	Websites – Web data integration.
+Connections:
+•	Business Layer → MCP Server → Internal Applications
+•	Business Layer → MCP Server → 3rd Party Applications / Tools
+•	Business Layer → MCP Server → Websites
+
+Summary of Flow (Step-by-Step Connection)
+1.	User Inputs (parameters, documents, APIs, context) are captured via Streamlit/Angular/ReactJS/Gradio.
+2.	Inputs are either:
+o	Converted into embeddings via Embedding Model → Vector DB (Milvus) for contextual retrieval (RAG)
+o	Or directly sent to Business Layer (rules, workflow, prompts).
+3.	Business Layer applies business rules, crafted prompts, workflows, and integrates with APIs and tools.
+4.	Business Layer queries the LLM Gateway, which routes to an LLM.
+5.	Retrieved/generated responses go back to Business Layer, then to:
+o	Output Layer (final user result)
+o	Or MCP Server for integration with Internal Applications, 3rd Party Tools, or Websites.
+
+ This representation is 100% accurate conversion of the diagram into text.
+ Covers all interfaces and connections in a step-by-step flow.
+ Can be directly fed into an AI tool (like Copilot, DeepSeek, or AutoGen) to create an agentic AI system.
+
+Here we have business use case for Insurance domain. 
+--------------------------------------------------
+Problem : Insurance Policy FAQ RAG Assistant 
+Problem Statement:  
+Customers often call insurers with repetitive queries (e.g., "What is not covered in my policy?", "What is the claim filing deadline?"). Build a RAG-based assistant that answers queries from a policy FAQ knowledge base.  
+Data Synthesis Required:  
+Teams must write their own FAQ dataset (~10–15 Q&A pairs) based on typical insurance coverage and exclusions (auto/home). This can be in text or CSV format.  
+LLM/RAG Use:  
+- Store FAQs in a vector DB.  
+- Query via LLM/A/DeepSeek.  
+- Return grounded answers with citation.  
+Demo Goal:  
+Show at least 3 queries asked, where the assistant responds with answers from the FAQ DB.
+
+
+List of packages are here: For Python 3.12 or 3.12.4 only
+------------------------------
+fastapi
+uvicorn
+streamlit
+requests
+python-dotenv
+pandas
+sentence-transformers
+faiss-cpu
+
+Contions:
+---------------
+SSL certificates not available in the environment
+Admin rights not available or not able to accessing in the network.
+Unable to create virtual Environment in the given system or infra (Not required any Virtual Environment).
+
+Project folder Strcture:
+-------------------
+Folder structure are given here:
+AILab_Non_VM/
+├── backend/
+│   ├── groq_client.py
+│   ├── indexer.py
+│   ├── main.py
+│   ├── prompt_templates.py
+│   ├── retriever.py
+│   └── __pycache__/
+├── data/
+│   └── faqs.csv
+├── frontend/
+│   ├── requirements.txt
+│   └── streamlit_app.py
+├── index_store/
+│   ├── faiss.index
+│   └── meta.pkl
+├── requirements.txt
+└── README.md
+
+Embedding Models:
+----------------------
+Embeddings - open source and easy to connect withot any SSL certfication (No, there is no SSL certification or HTTPS setup included in this project).
+
+MODEL_NAME = "all-MiniLM-L6-v2"
+self.model = SentenceTransformer(MODEL_NAME)
+
+AI/LLM Models:
+---------------------------------------
+AI LLM model- any cloud LLM with api key.
+
+API: https://api.groq.com/openai/v1/chat/completions 
+Header: Authorization : API Key
+Qroq API Kay: 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
+
+Request Body: {
+
+    "model": "llama-3.3-70b-versatile",
+    "messages": [
+        {
+            "role": "user",
+            "content": "Generate Selenium Java code for Salesforce Login"
+        }
+    ]
+} 
+
+
+Agentic AI or Tool Evaluvation Criteria and meet 100% Expectations:
+--------------------------------
+Addressing the problem statement
+Understanding of AI concepts
+Quality of Synthetic data generated
+Data processing and pipeline
+Quality of code and documentation
+Architecture of solutions and relevance
+Solutions scalability
+Security, privacy and eithical considerations 
