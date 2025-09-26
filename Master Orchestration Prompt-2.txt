@@ -1,285 +1,227 @@
-My ICE-POT definition (for these prompts)
-* I — Intent: what you want the LLM/agent to accomplish (goal).
-* C — Context: key background, constraints, data and architecture details.
-* E — Examples / Edge cases: sample inputs + expected outputs or tricky cases.
-* P — Persona / Perspective: role or voice the model should assume (e.g., Senior Backend Engineer, QA).
-* O — Output / Format: exact artifact(s) to produce (files, code, unit tests, README sections).
-* T — Tools / Tech & Tests: which tools, packages, APIs and tests to use; environmental constraints.
+# 📌 ICE-POT Prompts for Insurance Policy FAQ RAG Assistant
 
-Below are 18 ready-to-use ICE-POT prompts you can feed into an LLM (Copilot/DeepSeek/AutoGen/Groq/OpenAI) to generate code, specs, tasks, docs and test artifacts for the Insurance Policy FAQ RAG Assistant. Each prompt is self-contained and tuned to the architecture, stack, constraints, and project structure you gave.
+Each prompt is self-contained, follows the **ICE-POT** definition, and is crafted to directly generate project deliverables.
 
-# 1 — Project Kickoff: Technical Plan & Milestones
+## 1 — Project Kickoff: Technical Plan & Milestones
 
-I (Intent): Produce a complete technical plan and milestone list so a small team can deliver the Insurance Policy FAQ RAG Assistant within 2 hours for a demo.
-C (Context): Use the architecture and stack provided (Python 3.12.4, FastAPI, Streamlit, sentence-transformers `all-MiniLM-L6-v2`, faiss-cpu for vector store). No SSL, no admin rights, no venv. Project structure as given. Groq API key and endpoint available for LLM calls. Use local FAISS index file in `index_store/`. Provide fallback to in-memory index for demo if disk I/O not possible. Include security/ethical checklist.
-E (Examples): deliverable = working backend endpoints to ingest `data/faqs.csv`, embed with SentenceTransformer, index to FAISS, REST endpoints: `/index`, `/query?text=...`, and a `frontend/streamlit_app.py` demo with 3 example queries.
-P (Persona): Senior AI Solution Architect (concise, actionable).
-O (Output): 1) Milestone timeline with tasks (developer + tester), 2) estimated effort minutes per task, 3) acceptance criteria and demo script (three queries), 4) risk table and mitigations.
-T (Tools): Python packages list you provided, FAISS, SentenceTransformers model name, Groq API details.
+**I (Intent):** Produce a complete technical plan and milestone list.
+**C (Context):** Python 3.12.4, FastAPI, Streamlit, `sentence-transformers` (`all-MiniLM-L6-v2`), `faiss-cpu`, pandas, requests, dotenv. No SSL, no admin rights, no venv. FAISS index in `index_store/`. Fallback in-memory if file I/O blocked.
+**E (Examples):** Deliverable = backend endpoints (`/index`, `/query?text=...`), Streamlit demo, 3 queries tested.
+**P (Persona):** Senior AI Solution Architect.
+**O (Output):** Timeline + tasks, effort estimates, acceptance criteria, demo script, risk table.
+**T (Tools):** Packages above.
 
-Prompt to LLM (single block):
+**Prompt:**
 
 > You are a Senior AI Solution Architect. Produce a step-by-step technical plan and milestone schedule (tasks + subtasks) to implement the Insurance Policy FAQ RAG Assistant in 2 hours. Use the provided stack: Python 3.12.4, FastAPI, uvicorn, streamlit, pandas, sentence-transformers (`all-MiniLM-L6-v2`), faiss-cpu, requests, python-dotenv. Use the provided project folder structure. Include: task owner role (backend/dev/frontend/tester), exact commands to run (no sudo, no venv), required files to create, simple test plan with three queries, acceptance criteria (functional + non-functional), and risk mitigations for constraints (no SSL, no admin). Keep plan concise but detailed enough for developers to start immediately.
 
 
-# 2 — Data Synthesis Prompt (Generate 12 Insurance FAQs)
+## 2 — Data Synthesis (Insurance FAQs CSV)
 
-I: Generate a synthetic FAQ dataset (10–15 Q&A) for auto + home insurance covering coverage, exclusions, claim deadlines, deductibles, documents required, and third-party liability.
-C: Output must be CSV-compatible rows: `id,category,question,answer,source_hint` (source_hint e.g., "policy section 4.2"). Keep answers short (25–120 words) and include explicit citations that could be returned as a snippet (e.g., "See: policy-section-4.2"). Avoid legal advice; add an explicit line "not a legal advice, consult policy".
-E: Provide 3 example rows in the prompt to show format. Include edge cases: multi-policy question, international coverage question.
-P: Domain-savvy Insurance Content Writer.
-O: A ready-to-save CSV text (12 rows) and a small README note explaining how to load it into `data/faqs.csv`.
-T: Use only insurance domain knowledge; do not invent real company names.
+**I:** Generate a synthetic dataset (10–15 FAQ Q&As).
+**C:** Output must be CSV-compatible (`id,category,question,answer,source_hint`). Short answers, explicit policy citations. End with disclaimer.
+**E:** Include tricky cases: multi-policy, pre-existing damage.
+**P:** Insurance Content Writer.
+**O:** Ready-to-save CSV + README snippet.
+**T:** Domain knowledge only.
 
-Prompt:
+**Prompt:**
 
 > You're an Insurance Content Writer. Produce 12 FAQ Q&A pairs for auto+home policy FAQs. Output exactly as CSV rows with headers: `id,category,question,answer,source_hint`. Keep answers factual, short (<=120 words), and end each with "Disclaimer: not legal advice; consult your policy." Include source_hint like `policy-section-4.2`. Provide 2 tricky edge cases: multi-policy and pre-existing damage.
 
-# 3 — Indexer (indexer.py) Code Generation
 
-I: Generate `backend/indexer.py` that reads `data/faqs.csv`, embeds questions+answers with SentenceTransformer `all-MiniLM-L6-v2`, builds a FAISS index, and writes `index_store/faiss.index` and `index_store/meta.pkl`.
-C: Must run without admin or SSL; use local file paths only. Use `faiss-cpu`. Include progress logging, deterministic random seed, batch embedding, and fallback to in-memory index if writing fails. Add try/except with clear error messages. Do not attempt internet downloads beyond model usage (model load should use sentence-transformers library which downloads models automatically — include a note about offline model caching).
-E: Provide a small code snippet showing how to run: `python backend/indexer.py --csv data/faqs.csv --out index_store/`.
-P: Practical Python backend dev.
-O: Complete `indexer.py` with docstring, main CLI args, and dependency imports.
-T: Use `pandas`, `sentence-transformers`, `faiss`, `pickle`, `tqdm`.
+## 3 — Backend: Indexer (indexer.py)
 
-Prompt:
+**I:** Generate `indexer.py`.
+**C:** Load `data/faqs.csv`, embed Q&A, FAISS index, save index + metadata. Robust error handling.
+**E:** CLI usage: `python backend/indexer.py --csv data/faqs.csv --out index_store/`.
+**P:** Backend dev.
+**O:** Complete `indexer.py` file.
+**T:** pandas, faiss, pickle, sentence-transformers, tqdm.
+
+**Prompt:**
 
 > Write `backend/indexer.py`. It must: load `data/faqs.csv`, create embeddings with `SentenceTransformer("all-MiniLM-L6-v2")`, build a FAISS index (use IndexFlatIP or IndexFlatL2 with normalized vectors), save `index_store/faiss.index` and metadata `meta.pkl` containing ids and original texts. Provide CLI usage and robust error handling for file permission issues. Include logging. Output the full Python file.
 
-# 4 — Retriever (retriever.py) Code Generation
+## 4 — Backend: Retriever (retriever.py)
 
-I: Create `backend/retriever.py` that loads `index_store/faiss.index` and `meta.pkl` and exposes a `search(query, k=3)` function returning top-k passages with similarity score.
-C: Normalize embeddings for cosine similarity. Return the matching FAQ id, question, answer, score, and source_hint. Provide a minimal unit-test example at the bottom guarded by `if __name__ == "__main__":`.
-E: Example query: "What is not covered in my collision claim?" should return one or more answers from dataset.
-P: Backend dev with testing mindset.
-O: The `retriever.py` module and a short CLI demo.
-T: Use `sentence-transformers`, `faiss`, `pickle`, `numpy`.
+**I:** Create retriever module.
+**C:** Load FAISS + metadata, cosine similarity, return top-k with scores.
+**E:** Example: “What is not covered in my collision claim?” → relevant answer.
+**P:** Backend dev.
+**O:** Full `retriever.py` + small CLI demo.
+**T:** faiss, sentence-transformers, pickle, numpy.
 
-Prompt:
+**Prompt:**
 
 > Produce `backend/retriever.py` implementing `class Retriever:` with `load_index(path)` and `search(text, k=3)`. It should return list of dicts `{id,question,answer,score,source_hint}`. Include a small CLI demo to query interactively.
 
-# 5 — LLM Gateway Request Template (llm_gateway.py)
+## 5 — Backend: LLM Gateway (llm_gateway.py)
 
-I: Produce a small library `backend/llm_gateway.py` that formats a RAG prompt and sends it to the Groq API endpoint you specified. It should assemble system + user messages, inject retrieved contexts with citations, and call the API URL with proper Authorization header.
-C: Use provided Groq endpoint and API key; show header usage but read API key from `.env` via `python-dotenv` (env var `GROQ_API_KEY`). Avoid embedding the real key in code; show example `.env.example`. Return structured JSON with `answer` and `sources` fields. Handle API errors gracefully.
-E: Demonstrate an example call combining 2 retrieved passages into the prompt and ask the LLM to "Answer concisely and include citations in square brackets."
-P: Backend integrator.
-O: Full file `backend/llm_gateway.py` plus `.env.example` text.
-T: Use `requests`, `json`, `python-dotenv`.
+**I:** Gateway to Groq API.
+**C:** Read API key from `.env`, format RAG prompt with context + citations, handle errors.
+**E:** Example call with 2 contexts.
+**P:** Backend integrator.
+**O:** `backend/llm_gateway.py` + `.env.example`.
+**T:** requests, dotenv, json.
 
-Prompt:
+**Prompt:**
 
 > Write `backend/llm_gateway.py` that: (1) reads `GROQ_API_KEY` from `.env`, (2) exposes `def ask_with_context(user_question, contexts)` where contexts is a list of `{id,question,answer,source_hint}`, (3) builds a chat body per the Groq API JSON model and returns parsed answer + list of source_hints. Include error handling and sample usage.
 
-# 6 — Business Layer: prompt_templates.py
+## 6 — Backend: Prompt Templates (prompt_templates.py)
 
-I: Create `backend/prompt_templates.py` with safe, structured templates used by LLM Gateway for RAG. Include: answer-with-citations template, follow-up question generator, and clarification template.
-C: Templates must instruct the LLM to cite the source_hint for any factual claims and to avoid hallucination. Include a standard instruction to always start with a one-line summary, then expanded answer, then "Cited sources:" list.
-E: Provide example template fill for a user question and two contexts.
-P: Prompt engineer.
-O: Python module with string templates and a small `render(template_name, kwargs)` helper.
-T: Plain Python.
+**I:** Define safe prompt templates.
+**C:** Must enforce citation use and prevent hallucination.
+**E:** Example filled template.
+**P:** Prompt Engineer.
+**O:** Python module with templates + `render()` helper.
+**T:** Pure Python.
 
-Prompt:
+**Prompt:**
 
 > Create `backend/prompt_templates.py` with these templates: `RAG_ANSWER`, `FOLLOWUP_GENERATOR`, `CLARIFY_IF_NEEDED`. Include comments and usage examples.
 
-# 7 — FastAPI Backend Endpoints (main.py)
+## 7 — Backend: FastAPI (main.py)
 
-I: Produce `backend/main.py` implementing FastAPI app exposing endpoints:
+**I:** API server.
+**C:** Endpoints: `/index`, `/search`, `/health`. Use retriever + llm_gateway. CORS enabled.
+**E:** Sample `/search?q=claim deadline` → JSON with `answer`, `sources`.
+**P:** Backend API engineer.
+**O:** Full `main.py`.
+**T:** FastAPI, pydantic.
 
-* `POST /index` — triggers indexing (reads CSV, builds index)
-* `GET /search?q=...&k=3` — returns LLM-grounded answer with citations (calls retriever + llm_gateway)
-* `GET /health` — returns basic status.
-  C: No SSL required. Include CORS settings to allow local Streamlit. Use `uvicorn` run instruction in README. Use environment safe practices: read Groq API key from `.env`. Include request/response pydantic models.
-  E: Sample JSON output of `/search?q=claim deadline` showing `answer`, `sources`: `["policy-section-3.1"]`.
-  P: Backend API engineer.
-  O: Full `main.py` with route handlers and sample curl commands in docstring.
-  T: FastAPI, pydantic, retriever, llm_gateway.
-
-Prompt:
+**Prompt:**
 
 > Write `backend/main.py` implementing the endpoints above. Include inline comments and example curl commands.
 
-# 8 — Frontend Demo (Streamlit)
+## 8 — Frontend: Streamlit App
 
-I: Generate `frontend/streamlit_app.py` that provides:
+**I:** Demo UI.
+**C:** Upload FAQ CSV (optional), query box, answer display with clickable sources, collapsible raw contexts. 3 example queries.
+**E:** "Run Demo" button.
+**P:** Frontend engineer.
+**O:** `frontend/streamlit_app.py` + `frontend/requirements.txt`.
+**T:** Streamlit, requests.
 
-* Upload (optional) for `faqs.csv`,
-* Textbox for query,
-* Display of LLM answer and clickable cited source(s),
-* Show the raw retrieved contexts (collapsed by default).
-  C: Use only Streamlit. Provide instructions to run: `streamlit run frontend/streamlit_app.py --server.port 8501`. No external CSS or SSL.
-  E: UI should show 3 prefilled example queries and a "Run Demo" button.
-  P: Frontend engineer focused on rapid demo.
-  O: Full Streamlit file and `frontend/requirements.txt` minimal content.
-  T: Streamlit, requests.
-
-Prompt:
+**Prompt:**
 
 > Produce `frontend/streamlit_app.py` that calls the FastAPI `/search` endpoint. Include preloaded example queries and a clear UI for showing citations and raw retrieved text. Also include a small README note for how to run the demo locally.
 
-# 9 — Unit Tests & Smoke Tests
+## 9 — Documentation: README.md
 
-I: Provide a short test suite to validate indexing, retrieval, and LLM gateway call flow (mocking Groq API).
-C: Use plain `pytest` style but do not add pytest to requirements unless requested; supply tests in `backend/tests/test_retriever.py` and `backend/tests/test_indexer.py` which can be run with `python -m pytest backend/tests`. For Groq, include a mocked response example and explain how to run test with `GROQ_API_KEY` unset to use mock.
-E: Test that `indexer` creates `faiss.index` and that `retriever.search("deductible")` returns non-empty list.
-P: QA engineer.
-O: Two test files + short readme test instructions.
-T: pytest (explain to install it if desired).
+**I:** Provide complete README.
+**C:** Explain install, indexer, backend, frontend, demo queries. No venv, no SSL, no sudo.
+**E:** Include architecture ASCII diagram, curl examples.
+**P:** Technical writer.
+**O:** README.md.
+**T:** Markdown.
 
-Prompt:
-
-> Create two pytest test modules: `test_indexer.py` and `test_retriever.py`. Use small synthetic rows (2–3 items) to test the functions end-to-end. Include mocking example for Groq API calls.
-
-# 10 — Documentation: README.md (Deliverable)
-
-I: Produce a README explaining architecture, quickstart steps, commands to run indexer, backend, frontend, how to run demo queries, and evaluation checklist for judges.
-C: Mention constraints (no SSL, no admin, no venv) and how that impacts running. Include environment variables, `.env.example`, and where to put Groq key. Include expected outputs for the three demo queries.
-E: Include a one-page architecture ASCII diagram (compact) and sample curl responses.
-P: Technical writer.
-O: Complete README text that can be copy-pasted to project root README.md.
-T: Markdown.
-
-Prompt:
+**Prompt:**
 
 > Write README.md describing installation (pip install -r requirements.txt), how to run indexer, how to start backend (`uvicorn backend.main:app --reload --port 8000`), run streamlit, environment variables, and demo script (3 queries). Include scoring rubric mapping to evaluation criteria.
 
-# 11 — Security & Ethical Checklist
+## 10 — Security & Ethics Checklist
 
-I: Produce a short checklist covering PII handling, hallucination prevention, prompt injection defense, and minimal data retention rules for FAQ data.
-C: No external SSL; ensure API keys never committed. List mitigations for missing SSL (use local network only, document risk).
-E: Provide bullet points and sample header for `.gitignore`.
-P: Security engineer.
-O: Checklist text block to paste in README under "Security & Privacy".
-T: N/A.
+**I:** Provide concise checklist.
+**C:** PII, prompt injection, key handling, SSL absence.
+**E:** Add `.gitignore` note.
+**P:** Security engineer.
+**O:** Checklist text block.
+**T:** N/A.
 
-Prompt:
+**Prompt:**
 
 > Provide a concise security and ethics checklist for this demo-level RAG assistant, with practical mitigations that match the environment (no SSL, no admin).
 
-# 12 — Demo Script (for Judges)
+## 11 — Demo Script
 
-I: Create a step-by-step script judges can follow to run the demo and verify the three required queries.
-C: Must rely only on running: `pip install -r requirements.txt`, `python backend/indexer.py ...`, `uvicorn ...`, `streamlit run ...`. Provide expected sample outputs and pass/fail criteria.
-E: Include sample questions and the expected citation format.
-P: Demo host.
-O: One-page script with terminal commands and UI steps.
-T: N/A.
+**I:** Judges script.
+**C:** Must use only install, indexer, uvicorn, streamlit commands.
+**E:** 3 queries with expected outputs.
+**P:** Demo host.
+**O:** One-page demo script.
+**T:** N/A.
 
-Prompt:
+**Prompt:**
 
 > Create a 1-page demo script (commands + UI steps) containing three queries, what to click, and what judge must verify (answer grounded? citation present? latency <X seconds?).
 
-# 13 — Evaluation Rubric Template (for judges)
+## 12 — Evaluation Rubric
 
-I: Provide a scoring template mapping the contest criteria to numeric weights and sample checkpoints.
-C: Use criteria you supplied: problem addressing, AI concept understanding, data quality, pipeline, code quality, architecture, scalability, security/ethics.
-E: Provide sample passing thresholds and comments field for judges.
-P: Competition organizer.
-O: Markdown rubric with scoring table.
-T: N/A.
+**I:** Provide scoring rubric.
+**C:** Criteria: problem addressing, AI concept, data quality, pipeline, code quality, scalability, ethics.
+**E:** 0–5 scale, weighted.
+**P:** Competition organizer.
+**O:** Markdown rubric.
+**T:** N/A.
 
-Prompt:
+**Prompt:**
 
 > Produce an evaluation rubric in Markdown, with weighted scoring (0–5) for each criterion and example judge comments.
 
-# 14 — Prompt to Auto-generate Full Backend Boilerplate (single LLM call)
+## 13 — Backend Boilerplate (All Files at Once)
 
-I: Ask the model to generate all backend files in one response: `indexer.py`, `retriever.py`, `llm_gateway.py`, `prompt_templates.py`, `main.py`.
-C: Each file must adhere to earlier constraints (logging, env var, fallback options). Provide the entire files inline, separated by filenames.
-E: Provide small sample `faqs.csv` row to include.
-P: Full-stack backend developer.
-O: A single monolithic LLM output containing each file’s source.
-T: Use earlier tools and package names.
+**I:** Generate all backend files in one go.
+**C:** Provide each file separated by headers. No secrets.
+**E:** Include a small `faqs.csv` sample row.
+**P:** Full-stack dev.
+**O:** Monolithic output with 5 files.
+**T:** Python libs above.
 
-Prompt:
+**Prompt:**
 
 > Generate the full backend codebase as separate files. Start each file with a comment header `# FILE: backend/<filename>`. Include small inline usage examples and file run commands. Ensure no secrets in code.
 
-# 15 — Prompt for Frontend + UX Polish
+## 14 — Frontend UI Spec
 
-I: Produce a concise UI polish guide for the Streamlit app: layout, collapse patterns, example screenshots (ASCII), and accessibility checks.
-C: Minimalistic, must work on local network without external dependencies.
-E: Example: show a collapsible "Raw Context" area, copy-to-clipboard for citation.
-P: Product designer.
-O: Short UI spec for a developer to implement.
-T: Streamlit components.
+**I:** UX polish for Streamlit app.
+**C:** Minimalistic, collapsible raw context, accessibility.
+**E:** ASCII mockup.
+**P:** Product designer.
+**O:** Short UI spec.
+**T:** Streamlit.
 
-Prompt:
+**Prompt:**
 
 > Provide a one-page UI spec for `frontend/streamlit_app.py` that describes layout, components, and interactions for the demo.
 
-# 16 — Agents / AutoGen Workflow Prompt (Agent Orchestration)
 
-I: Create a prompt to instruct an orchestration agent (LangChain/AutoGen) to coordinate indexing, retrieval, LLM call and multi-step clarification with user until answer is grounded.
-C: If retrieved contexts insufficient (score < threshold), ask follow-up question to user. Include a maximum of 2 clarification rounds.
-E: Provide an example of the orchestration flow for a question about "pre-existing damage".
-P: Workflow engineer.
-O: JSON or YAML pseudo-workflow the orchestration engine can execute and sample system prompts for each step.
-T: LangChain/AutoGen compatible language (pseudo).
+## 15 — Agent Workflow (LangChain/AutoGen)
 
-Prompt:
+**I:** Spec orchestration workflow.
+**C:** If confidence low, ask clarification. Max 2 rounds.
+**E:** Example: pre-existing damage.
+**P:** Workflow engineer.
+**O:** JSON/YAML pseudo workflow.
+**T:** LangChain/AutoGen pseudo-language.
+
+**Prompt:**
 
 > Provide a workflow spec for an AutoGen/LangChain agent that: (1) retriever search, (2) check aggregate similarity, (3) if below threshold ask for clarification, else (4) call llm_gateway with contexts and return answer+citations. Include sample messages for each step.
 
-# 17 — Scalable Improvements & Next Steps (Post-demo)
+## 16 — Roadmap to Production
 
-I: Produce a short roadmap for productionizing (security, storage, vector DB swap to Milvus, SSL, auth) and measurable KPIs for the 3-month roadmap.
-C: Include migration notes from FAISS to Milvus and to cloud LLM providers with secure key storage.
-E: Steps with required team roles and rough timeline.
-P: Product manager.
-O: 1-page roadmap.
-T: N/A.
+**I:** Roadmap beyond demo.
+**C:** Milvus migration, cloud LLMs, compliance.
+**E:** 3-month plan with KPIs.
+**P:** Product manager.
+**O:** 1-page roadmap.
+**T:** N/A.
 
-Prompt:
+**Prompt:**
 
 > Output a 3-month roadmap to take this demo to production, including Milvus migration plan, performance goals, cost considerations, and compliance steps.
 
-# 18 — Auto-grading Script (Optional)
+## 17 — Auto-Grading Script
 
-I: Provide a lightweight grading script `scripts/grade_demo.py` that runs the 3 example queries against local backend and checks for (a) presence of citations, (b) answer non-empty, and (c) answers match expected keys from FAQ dataset. Output a total score.
-C: Should not require external packages beyond `requests` and `pandas`.
-E: Sample pass/fail messages.
-P: Tools engineer.
-O: Single Python script, CLI usage.
-T: requests, pandas.
+**I:** Script to grade demo automatically.
+**C:** Runs 3 queries, checks citations + answers.
+**E:** Pass/fail messages.
+**P:** Tools engineer.
+**O:** `scripts/grade_demo.py`.
+**T:** requests, pandas.
 
-Prompt:
+**Prompt:**
 
 > Create `scripts/grade_demo.py` that executes the three test queries and prints a JSON scorecard.
-
-## Quick sample FAQ (ready to paste into `data/faqs.csv`)
-Use this as input for the indexing steps and to demonstrate the 3 demo queries.
-```
-id,category,question,answer,source_hint
-1,auto,What is not covered in collision coverage?,Collision coverage pays for damage to your vehicle after an accident you cause. It generally does NOT cover mechanical failures, routine wear-and-tear, or pre-existing damage. See policy section 4.2 for exclusions. Disclaimer: not legal advice; consult your policy.,policy-section-4.2
-2,auto,What is my claim filing deadline?,Claims should be reported as soon as reasonably possible—typically within 30 days of the incident. Some policies require immediate notification for theft. See policy section 3.1 for deadlines. Disclaimer: not legal advice; consult your policy.,policy-section-3.1
-3,home,Are flood damages covered under a standard homeowner policy?,Standard homeowner policies typically exclude flood damage; separate flood insurance is required. Check policy exclusions section 8.1. Disclaimer: not legal advice; consult your policy.,policy-section-8.1
-4,auto,Does the policy cover rental car after an accident?,Rental reimbursement is covered only if your policy includes rental reimbursement endorsement; see endorsements section. Disclaimer: not legal advice; consult your policy.,policy-section-5.4
-```
-
-## Acceptance Criteria (for the 2-hour demo)
-1. `backend/indexer.py` can ingest `data/faqs.csv` and produce `index_store/faiss.index` and `index_store/meta.pkl`.
-2. FastAPI `GET /search?q=...` returns an `answer` string and `sources` list (non-empty) for each of the 3 demo queries.
-3. `frontend/streamlit_app.py` loads and displays answers + citations and raw contexts.
-4. Documentation (README) contains run steps and demo script.
-5. Basic unit tests for indexer/retriever pass locally.
-6. Judges can run a quick grading script and get a numeric scorecard.
-
-## Extra tips & constraints reminders (short)
-
-* Model downloads: `sentence-transformers` will auto-download `all-MiniLM-L6-v2` on first run — ensure the environment has outbound network for model fetch or pre-cache model files. Document that in README.
-* No SSL: Run services locally; make clear in README this demo is not for public deployment.
-* API keys: Never commit `.env` with real keys; include `.env.example`.
-* FAISS vs Milvus: Your provided stack uses FAISS for the demo (OK for small datasets). For production scale, use Milvus as your architecture diagram suggests.
-
-If you want, I can now:
-
-* (A) Produce one of the files immediately (pick which file: `indexer.py`, `retriever.py`, `backend/main.py`, or `frontend/streamlit_app.py`) OR
-* (B) Return all of the above as ready-to-save files in a single combined response (long) for copy/paste.
-
-Pick A or B and I’ll generate the code right away (I'll include the docstrings, CLI usage and the small demo data).

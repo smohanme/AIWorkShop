@@ -1,0 +1,2 @@
+$env:GROQ_API_KEY="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"
+uvicorn app.fastapi_server:app --reload --log-level debug

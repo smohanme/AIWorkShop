@@ -1,0 +1,293 @@
+Important: I kept the required constraints you repeatedly stated (no venv / no virtual environment, no admin, no SSL) and focused each prompt on producing production-ready code, docs, metadata, or operational artifacts — but **no demo-run scripts, no unit tests, no grading scripts, and no demo-only code**.
+
+Below are 18 ready-to-use ICE-POT prompts for the Claim Description Classifier project.
+
+
+
+## Shared background (use this in each prompt implicitly)
+
+* **Goal:** classify short insurance claim descriptions into `{Accident, Fire, Theft, Natural Disaster, Other}`.
+* **Dataset:** small synthetic dataset (20–30 records) of 1–2 line claim descriptions + label. Teams synthesize data.
+* **Stack (suggested):** Python 3.12.4, FastAPI, Streamlit (optional UI), scikit-learn for baseline, sentence-transformers (`all-MiniLM-L6-v2`) or LLM provider for LLM/RAG augment, faiss-cpu (optional).
+* **Constraints:** no SSL, no admin privileges, **no virtual environment**, local file paths only. API keys read from `.env` via `python-dotenv` when needed.
+* **Deliverables:** production-oriented code (clean, documented), README, security & ops checklists, deployment notes.
+
+
+
+# 1 — Project Kickoff: Technical Plan & Milestones
+
+I: Produce a complete technical plan and milestone list so a small team can deliver a robust Claim Description Classifier product (MVP) ready for internal evaluation.
+C: Use stack suggested above. No venv, no admin. Include dataset synthesis, model training, inference API, optional LLM/RAG integration, simple local UI (optional), logging/monitoring guidance. Provide fallback if embeddings/models cannot be downloaded (note offline caching).
+E: Deliverable = working backend `POST /classify` endpoint, vector store for grounding if used, and docs describing how to run the system locally.
+P: Senior AI Solution Architect (concise, pragmatic).
+O: Milestone timeline with roles (backend, ML, infra, product), task durations (minutes), acceptance criteria per milestone, and risk mitigations. Output should be a checklist and timeline text.
+T: Python packages list, expected files, example commands (no sudo).
+
+Prompt (single block):
+
+> You are a Senior AI Solution Architect. Produce a step-by-step technical plan and milestone schedule (tasks + subtasks) to implement a production-ready Claim Description Classifier MVP. Use: Python 3.12.4, FastAPI, scikit-learn, sentence-transformers (`all-MiniLM-L6-v2`) or LLM provider, faiss-cpu optional. Include: task owners (backend/ML/infra/product), exact commands to run (no sudo/no venv), required files, acceptance criteria per milestone, test types (functional/manual validation only — **no unit tests**), and risk mitigations for constraints (no SSL, no admin). Keep output concise and actionable.
+
+
+# 2 — Data Synthesis Prompt (Create 25 Synthetic Claims)
+
+I: Generate a balanced synthetic dataset of 25 labeled claim descriptions for training and validation.
+C: CSV rows: `id,description,label` with `label` in `{Accident,Fire,Theft,Natural Disaster,Other}`. Descriptions 1–2 lines; include ambiguous and multi-event edge cases. Add `source_hint` column optional for provenance.
+E: Provide 3 example rows in the prompt to illustrate format. Include at least 4 ambiguous/edge cases (vandalism vs theft, fire suspected vs smoke, storm damage vs accident).
+P: Data engineer with insurance domain knowledge.
+O: A ready-to-save CSV text block (25 rows) and a short usage note describing train/val split and recommended preprocessing steps (text cleaning, anonymization).
+T: Plain CSV output; no code.
+
+Prompt:
+
+> You're a Data Engineer. Produce 25 synthetic claim rows in CSV format with header `id,description,label[,source_hint]`. Ensure class balance, include 4 tricky edge cases, and provide a short note (3–5 lines) on splitting and preprocessing for training (anonymization, punctuation, numeric normalization).
+
+
+
+# 3 — Training Script (train_classifier.py)
+
+I: Generate a robust training script that trains a baseline classifier on the provided CSV.
+C: Use scikit-learn (TfidfVectorizer + LogisticRegression) for baseline; include alternative flag to use sentence-transformers embeddings + an sklearn classifier. Deterministic seeds, CLI args for `--csv`, `--out-dir`, `--use-embeddings`, hyperparameters. Persist model and vectorizer with `joblib`. Include minimal evaluation metrics (accuracy, per-class precision/recall/F1) printed and saved to `out_dir/metrics.json`. No unit tests or demo-run scripts.
+E: Example CLI: `python train_classifier.py --csv data/claims.csv --out-dir models/ --use-embeddings`.
+P: ML Engineer.
+O: Complete `train_classifier.py` file with docstring, CLI, logging, and clear error messages.
+T: pandas, scikit-learn, sentence-transformers (optional), joblib, numpy.
+
+Prompt:
+
+> Write `train_classifier.py`. It should: accept CLI args `--csv`, `--out-dir`, `--use-embeddings` (bool); implement TF-IDF+LogisticRegression by default; when `--use-embeddings` is passed use `SentenceTransformer("all-MiniLM-L6-v2")` to embed and then train an sklearn classifier. Save `vectorizer.joblib` (or `embedder` metadata) and `classifier.joblib` to `out_dir`. Print and save evaluation metrics to `out_dir/metrics.json`. Include deterministic random seed and helpful logging.
+
+
+
+# 4 — Inference API (backend/main.py)
+
+I: Create a production-style FastAPI service exposing classification endpoints.
+C: Offer `POST /classify` (accepts JSON list of descriptions → returns `{description,label,confidence}`), `POST /upload_dataset` (admin-only CSV ingestion for model retraining workflow — implement as file drop into `data/` and return acknowledgment), and `GET /health`. Read model paths and config from `.env`. Include CORS for allowed local frontends. Do not include demo scripts or test harnesses. Include pagination/size limits and input sanitization.
+E: Example `POST /classify` input: `{"descriptions":["Car hit tree during storm","Window smashed and belongings missing"]}`. Output array with labels and confidence.
+P: Backend engineer (production-minded).
+O: Full `backend/main.py` implementing endpoints, pydantic models, startup model loading, and example curl snippets (informational only).
+T: FastAPI, pydantic, joblib, python-dotenv, uvicorn.
+
+Prompt:
+
+> Produce `backend/main.py` implementing `POST /classify`, `POST /upload_dataset`, and `GET /health`. Load models from `models/` directory at startup (paths from `.env`), include Pydantic request/response models, input validation, CORS setup for `http://localhost:8501`, and example curl usages in docstring. Do not include unit tests or interactive demo code.
+
+
+
+# 5 — LLM-assisted Fallback Classifier (backend/llm_classifier.py)
+
+I: Provide an LLM-based classification module to use as a fallback when baseline classifier low confidence.
+C: Support zero-shot and few-shot patterns; read API key from `.env` (e.g., `GROQ_API_KEY` or `OPENAI_API_KEY`) and call configured LLM endpoint. Must return structured JSON: `{label,confidence,explanation,used_examples}`. Include rate-limit/backoff, timeouts, and safe-fallback behavior when API unavailable. No demo UI, no tests.
+E: Example usage: `classify_with_llm("Smoke in kitchen, no flame visible") -> {"label":"Fire","confidence":0.78,...}`
+P: LLM Integration Engineer.
+O: `backend/llm_classifier.py` with functions `classify_zero_shot(text)` and `classify_few_shot(text, examples)` and a `classify_with_fallback(text, baseline_confidence)` helper. Include clear docstrings and error handling.
+T: requests or official SDK placeholder, python-dotenv, retry/backoff.
+
+Prompt:
+
+> Write `backend/llm_classifier.py` exposing `classify_zero_shot(text)`, `classify_few_shot(text, examples)`, and `classify_with_fallback(text, baseline_confidence, threshold=0.6)`. Read API key from `.env`. Build prompt templates (JSON output required). Implement HTTP call, timeout, retry/backoff, and graceful fallback when API fails.
+
+
+
+# 6 — Prompt Templates (backend/prompt_templates.py)
+
+I: Provide safe, structured prompt templates for LLM classification and explanation generation.
+C: Templates must instruct the LLM to: 1) produce a single-line JSON `{label,confidence,explanation}`; 2) prefer the 5 fixed labels; 3) avoid hallucination and return `Other` when unsure. Add a category definitions template to ground decisions.
+E: Show a filled example for `"Window smashed during storm — items taken."` using a few-shot template.
+P: Prompt engineer.
+O: `backend/prompt_templates.py` module containing templates and a `render(template_name, **kwargs)` helper.
+T: Plain Python.
+
+Prompt:
+
+> Create `backend/prompt_templates.py` with templates `ZERO_SHOT_CLASSIFY`, `FEW_SHOT_CLASSIFY`, and `CATEGORY_DEFINITIONS`. Each must require JSON output and include explicit instructions to prefer the five categories or `Other`. Provide a small `render` helper and a usage example.
+
+
+
+# 7 — Retriever & Grounding (backend/retriever.py)
+
+I: Build a retriever module for optional RAG grounding of category definitions or exemplar claims.
+C: Support a FAISS index (`index_store/faiss.index`) and metadata (`meta.pkl`) or in-memory fallback. Normalize embeddings (cosine sim). API: `class Retriever` with `load_index(path)` and `search(text,k=3)` returning `{id, text,score,source_hint}`. No test files.
+E: Query example: `"What counts as theft?"` should return relevant definitions/excerpts.
+P: Backend engineer.
+O: `backend/retriever.py` with robust loading, search, and safety (max length check) plus CLI usage example in module docstring (not runnable demo).
+T: sentence-transformers, faiss, pickle, numpy.
+
+Prompt:
+
+> Produce `backend/retriever.py` implementing `class Retriever` with `load_index(index_dir)` and `search(text,k=3)`. Use normalized embeddings for cosine similarity. Provide clear error handling and a short usage snippet in the docstring. Do not include unit tests.
+
+
+
+# 8 — Indexer (backend/indexer.py)
+
+I: Create an indexer that ingests `data/definitions.csv` (or `data/claims.csv` optional) and builds FAISS embeddings for grounding.
+C: Use `SentenceTransformer("all-MiniLM-L6-v2")` to embed; save `index_store/faiss.index` and `index_store/meta.pkl`. Include deterministic batching, progress logging, and fallback to in-memory index if write fails. Note offline caching caveat. No demo or test files.
+E: CLI: `python backend/indexer.py --csv data/definitions.csv --out index_store/`.
+P: Data engineer.
+O: Full `backend/indexer.py` with CLI args, logging, and error messages.
+T: pandas, sentence-transformers, faiss, pickle, tqdm.
+
+Prompt:
+
+> Write `backend/indexer.py` that loads a CSV, creates embeddings with `SentenceTransformer("all-MiniLM-L6-v2")`, builds a FAISS index (IndexFlatIP + normalized vectors), and saves `index_store/faiss.index` and `index_store/meta.pkl`. Include CLI usage, batching, and robust error handling.
+
+
+
+# 9 — Business Layer: classifier orchestration (backend/orchestrator.py)
+
+I: Implement the runtime orchestration logic that decides between baseline classifier and LLM fallback and optionally grounds decisions with retriever.
+C: Inputs: `text`, outputs: `{label,confidence,explanation,provenance}`. Decision rules: if baseline confidence >= `threshold` return baseline; else call LLM classifier and attach retriever contexts if available. Include rate-limiting safeguards and safe default to `Other`. No tests or demo scripts.
+E: Show orchestration flow for `"Neighbor set off fireworks; small fire on roof."`.
+P: ML Ops engineer.
+O: `backend/orchestrator.py` module with `class Orchestrator` and `classify(text)` method; config via `.env` or config file.
+T: python-dotenv, retriever, train_classifier outputs, llm_classifier.
+
+Prompt:
+
+> Produce `backend/orchestrator.py` implementing `Orchestrator` with methods to load baseline model, retriever, and optional LLM. Implement `classify(text)` that uses config-driven thresholds to choose path, attaches provenance contexts when used, and returns structured JSON.
+
+
+
+# 10 — Frontend UI (frontend/app.py) — **non-demo, production UI stub**
+
+I: Provide a minimal but production-ready frontend app (single-file Streamlit or Flask page) that allows authorized internal users to input descriptions and view classification results.
+C: Keep it minimal and secure for local/internal use (basic token-based access via `.env` secret). Include UI elements: text input, batch paste, model selection (baseline/LLM), and results table with provenance. No demo-only sample queries or export buttons that imply grading. No test scripts.
+E: Input: single description; Output: label, confidence, explanation, source_hint list.
+P: Frontend engineer.
+O: `frontend/app.py` (Streamlit) with clear run instructions in file docstring. Keep styling minimal; do not include external CSS.
+T: streamlit, requests (to call backend).
+
+Prompt:
+
+> Write `frontend/app.py` using Streamlit that provides an internal UI for submitting claim descriptions to `POST /classify`. Include token input read from `.env` for local auth, fields for single and batch input, model selection toggle, and a results table showing `label,confidence,explanation,provenance`. Include run instructions in the docstring (no demo queries).
+
+
+
+# 11 — Documentation: README.md (Deliverable)
+
+I: Produce a README describing architecture, quickstart, commands to train and run the service, model formats, configuration, and operational notes.
+C: Mention constraints (no SSL, no admin, no venv). Include `.env.example`, recommended directory layout, how to regenerate embeddings, and how to change thresholds. Do not include judge demo scripts or unit test instructions.
+E: Provide example `POST /classify` request/response JSON (illustrative).
+P: Technical writer.
+O: Complete `README.md` text ready for project root.
+T: Markdown only.
+
+Prompt:
+
+> Write `README.md` describing the Claim Description Classifier architecture, quickstart steps (install packages, train, start backend), model file layout (`models/`), index store (`index_store/`), `.env.example`, and operational notes (log locations, how to change thresholds). Do NOT include demo-run scripts or mention unit tests.
+
+
+
+# 12 — Security & Privacy Checklist (Operational)
+
+I: Produce a concise security & privacy checklist tailored to this local demo-to-MVP environment.
+C: Cover PII handling, API key management, prompt injection mitigation, minimal data retention, local-only deployment mitigations, and an example `.gitignore` header. No testing scripts.
+E: Bullet points and an example `.gitignore` snippet that excludes `models/`, `.env`, and `index_store/`.
+P: Security engineer.
+O: Checklist text block for README.
+T: N/A.
+
+Prompt:
+
+> Provide a Security & Privacy checklist for a local Claim Description Classifier: PII minimization, never commit `.env`, prompt injection mitigation tactics, data retention policies, and an example `.gitignore` header. Keep it concise and actionable.
+
+
+
+# 13 — Monitoring & Logging Plan
+
+I: Provide a minimal monitoring & logging plan for operational use.
+C: Include recommended logs to capture (requests, model versions, confidence), retention suggestions, metric ideas (throughput, latency, error rate, drift signals like confidence distribution), and simple alert thresholds. No external monitoring integrations required — describe optional ones (Prometheus/Grafana) as notes.
+E: Provide example log schema for classification events.
+P: SRE/ML Ops engineer.
+O: Text plan with log schema and suggested metric thresholds.
+T: N/A.
+
+Prompt:
+
+> Produce a monitoring & logging plan describing (1) events to log, (2) minimal metric set to compute, (3) suggested retention policies, and (4) alert thresholds for a local Claim Description Classifier MVP. Include example JSON schema for a classification event log.
+
+
+
+# 14 — Model Evaluation Report Template (no tests)
+
+I: Provide a concise evaluation template for documenting model performance after training.
+C: Include fields: dataset description, train/val split, overall accuracy, per-class precision/recall/F1, confusion matrix, sample misclassifications (anonymized), and recommended next steps for improvement. No automated test code.
+E: Provide a filled example skeleton for a hypothetical run.
+P: ML Evaluator.
+O: Markdown evaluation report template ready to fill after training.
+T: N/A.
+
+Prompt:
+
+> Produce a Markdown template for a model evaluation report covering dataset summary, metrics (accuracy, per-class F1), confusion matrix, sample misclassifications, and recommended next steps. Include a small hypothetical example row for clarity.
+
+
+
+# 15 — Data Governance & Anonymization Guide
+
+I: Provide guidance on safe handling and anonymization of claim descriptions and retention rules.
+C: Recommend transformation steps (PII removal, tokenization, hashing identifiers), retention periods, and redaction rules for logs and training data. Include a small Python pseudocode snippet showing redaction of phone numbers and policy numbers (no runnable code required).
+E: Example: redact sequences that match policy-number regex or phone numbers.
+P: Privacy engineer.
+O: Textual guide + small pseudocode snippet.
+T: N/A.
+
+Prompt:
+
+> Provide a Data Governance & Anonymization guide for claim text: rules to detect and redact PII, recommended retention periods, and a short pseudocode snippet demonstrating redaction of phone numbers and policy numbers.
+
+
+
+# 16 — Orchestration Workflow Spec (Agent-ready pseudo-workflow)
+
+I: Provide a workflow spec (JSON/YAML pseudo-spec) describing the orchestration sequence: receive text → baseline classifier → if confidence < threshold call retriever+LLM → produce final label + provenance. Include max clarification rounds = 0 (system-only).
+C: Include decision thresholds, timeouts, retry policies, and clear JSON message formats between components. No live agent code.
+E: Provide an example flow for `"Rear window smashed after storm"`.
+P: Workflow engineer.
+O: JSON or YAML pseudo-workflow spec suitable for AutoGen/LangChain-style orchestrators.
+T: N/A.
+
+Prompt:
+
+> Provide a JSON or YAML pseudo-workflow spec that defines the orchestration: baseline classifier -> confidence check -> optional RAG retrieval -> LLM call -> respond. Include thresholds, timeouts, and example messages. No runnable agent code.
+
+
+
+# 17 — Productionization Roadmap (3-month)
+
+I: Produce a prioritized 3-month roadmap to move MVP to production readiness.
+C: Include priorities: secure key management, SSL & auth, model monitoring, scalable inference (containerization/Kubernetes), vector DB migration (FAISS→Milvus), and compliance for PII. Provide roles and rough timelines.
+E: Provide a short migration note for FAISS → Milvus.
+P: Product manager.
+O: One-page roadmap with milestones and KPIs.
+T: N/A.
+
+Prompt:
+
+> Output a 3-month roadmap to take the Claim Description Classifier from MVP to production, covering secure key storage, SSL/auth, model monitoring, scalable serving, vector DB migration (FAISS→Milvus), compliance steps, roles, and KPIs.
+
+
+
+# 18 — Architecture & Deliverables Checklist
+
+I: Produce a final architecture summary and a checklist of deliverables expected at project completion.
+C: Include architecture ASCII diagram, file & folder layout, required artifacts (trained model files, vector index, backend code, prompt templates, docs), and an acceptance checklist (what must be present and verifiable). Exclude demo scripts and unit tests.
+E: Provide a minimal ASCII diagram showing flow: Client → API → Orchestrator → {Baseline Model, Retriever, LLM} → Response.
+P: Solution architect.
+O: One-page architecture summary and a deliverables checklist in Markdown.
+T: N/A.
+
+Prompt:
+
+> Produce a one-page architecture summary (ASCII diagram) and a deliverables checklist listing all files/folders and acceptance checks for the Claim Description Classifier project. Do NOT include demo scripts or unit tests.
+
+
+
+That’s the full set — 18 ICE-POT prompts tailored to your request (no demo code, no unit tests, no grading).
+
+Would you like me to:
+
+* (A) Generate one of the code files now (pick which file: `train_classifier.py`, `backend/main.py`, `backend/llm_classifier.py`, `backend/indexer.py`, etc.), **or**
+* (B) Return all suggested files and docs (the full code + README + ancillary modules) as ready-to-save text in one long response?
+
+Pick **A** (and name the file) or **B** and I’ll produce the artifacts immediately.

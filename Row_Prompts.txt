@@ -151,6 +151,8 @@ API: https://api.groq.com/openai/v1/chat/completions
 Header: Authorization : API Key
 Qroq API Kay: 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
 
+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
+
 Request Body: {
 
     "model": "llama-3.3-70b-versatile",
